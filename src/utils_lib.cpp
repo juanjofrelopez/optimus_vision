@@ -176,7 +176,7 @@ cv::Mat findDrawContours(cv::Mat close,cv::Mat depthColormap){
     return depthColormap;   
 }
 
-cv::Mat processDepth(cv::Mat depthImage, uint16_t imageHeight, uint16_t imageWidth){
+cv::Mat processDepth(cv::Mat depthImage){
     cv::Mat depthValues;
     depthImage.convertTo(depthValues, CV_32S);
 

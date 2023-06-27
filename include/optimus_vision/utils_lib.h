@@ -20,6 +20,6 @@ std::vector<cv::Point> filterPolyLines(std::vector<cv::Point> contour);
 cv::Mat filterDepth(cv::Mat depthValues, uint16_t clippingDistance);
 
 
-cv::Mat processDepth(cv::Mat depthImage, uint16_t imageHeight, uint16_t imageWidth);
+cv::Mat processDepth(cv::Mat depthImage);
 
 #endif  // UTILS_LIB_H

@@ -18,15 +18,13 @@ void depth_callback(const sensor_msgs::Image::ConstPtr& msg){
     }
 
     cv::Mat depthImage = cv_ptr->image;
-    uint16_t imageHeight = msg->height; // rows
-    uint16_t imageWidth = msg->width; // cols
-
-    
+    // uint16_t imageHeight = msg->height; // rows
+    // uint16_t imageWidth = msg->width; // cols
     
     auto start = std::chrono::high_resolution_clock::now();
 
     // Publish the depth image
-    cv::Mat depthColormap = processDepth(depthImage,imageHeight,imageWidth);
+    cv::Mat depthColormap = processDepth(depthImage);
     
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
