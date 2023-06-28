@@ -56,29 +56,31 @@ uint16_t calculateClippingDistance(uint16_t groundDistance, uint16_t panelDistan
 }
 
 cv::Mat filterDepth(cv::Mat depthValues, uint16_t clippingDistance){
-    for (int r = 0; r < 480; r++){
-        for (int c = 0; c < 640; c++){
-            uint16_t tempValue = static_cast<uint16_t>(depthValues.at<int>(r,c));
+    for (uint16_t r = 0; r < 480; r++){
+        for (uint16_t c = 0; c < 640; c++){
+            uint16_t tempValue = static_cast<uint16_t>(depthValues.at<uint32_t>(r,c));
             if(tempValue > clippingDistance){
                 // asignarle un cero en la misma posicion
-                depthValues.at<int>(r,c) = 0;
+                depthValues.at<uint32_t>(r,c) = 0;
             }
         }
     }
-    cv::Mat filteredDepthColormap;
-    convertScaleAbs(depthValues, filteredDepthColormap);
+
+    cv::Mat grayScaleDepth;
+    convertScaleAbs(depthValues, grayScaleDepth);
     
-    uint8_t thresh = 255;
-    uint8_t max_value = 255;
-    cv::Mat thresholded_image;
-    cv::threshold(filteredDepthColormap, thresholded_image, thresh, max_value, cv::THRESH_TRUNC);
+    // uint16_t thresh = 255;
+    // uint16_t max_value = 255;
+    // cv::Mat thresholded_image;
+    // cv::threshold(grayScaleDepth, thresholded_image, thresh, max_value, cv::THRESH_TRUNC);
 
     // cv::Mat denoise;
     // cv::medianBlur(thresholded_image, denoise, 7);
 
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(21, 21));
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(27, 27));
     cv::Mat close;
-    cv::morphologyEx(thresholded_image, close, cv::MORPH_CLOSE, kernel);
+    //cv::morphologyEx(thresholded_image, close, cv::MORPH_CLOSE, kernel);
+    cv::morphologyEx(grayScaleDepth, close, cv::MORPH_CLOSE, kernel);
 
     return close;
 }
@@ -155,7 +157,7 @@ std::vector<cv::Point> filterPolyLines(std::vector<cv::Point> contour){
     return gilada;
 }
 
-std::vector<cv::Point> polyContour(cv::Mat depthColormap, std::vector<cv::Point> contour){
+std::vector<cv::Point> polyContour(std::vector<cv::Point> contour){
     std::vector<cv::Point> approximatedContour = simplifyContour(contour);
     std::vector<cv::Point> filteredPoly = filterPolyLines(approximatedContour);
     return filteredPoly;
@@ -165,36 +167,33 @@ cv::Mat findDrawContours(cv::Mat close,cv::Mat depthColormap){
     std::vector<std::vector<cv::Point>> contours;
     std::vector<cv::Vec4i> hierarchy;
     cv::findContours(close, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+    
     for (size_t i = 0; i< contours.size(); i++){
         //drawContours( depthColormap, contours, (int)i, (0,255,0), 2, cv::LINE_8, hierarchy, 0 );
         double area = cv::contourArea(contours[i]);
         if (!(area < 150000 || area > 200000)){
-            std::vector<cv::Point> approximatedContour = polyContour(depthColormap,contours[i]);
+            std::vector<cv::Point> approximatedContour = polyContour(contours[i]);
             cv::drawContours(depthColormap, std::vector<std::vector<cv::Point> >(1,approximatedContour), -1, CV_RGB(0,255,0), 2, 8);
         }
     }
     return depthColormap;   
 }
 
-cv::Mat processDepth(cv::Mat depthImage){
-    cv::Mat depthValues;
-    depthImage.convertTo(depthValues, CV_32S);
-
-    cv::Mat depthColormap;
-    cv::convertScaleAbs(depthValues, depthColormap);
-    cv::applyColorMap(depthColormap, depthColormap, cv::COLORMAP_JET);
-
+cv::Mat processDepth(cv::Mat depthValues){
     uint16_t panelDistance = getPanelDistance(depthValues);
     uint16_t groundDistance = getGroundDistance(depthValues);
     uint16_t clippingDistance = calculateClippingDistance(groundDistance,panelDistance);
-
+    
     // std::cout<<panelDistance<<" "<<groundDistance<<" "<<clippingDistance<<std::endl;
     // std::cout<<"\x1b[1A"<<"\x1b[2K"<<"\r";
-
-    cv::Mat close = filterDepth(depthValues,clippingDistance);
-    depthColormap = findDrawContours(close,depthColormap);
-
     
-    // return depthColormap;
-    return depthColormap;
+    cv::Mat close = filterDepth(depthValues,clippingDistance);
+
+    //cv::Mat depthColormap;
+    cv::Mat depthMask = cv::Mat::zeros(close.size(), CV_8UC3);
+    // cv::convertScaleAbs(depthValues, depthColormap);
+    // cv::applyColorMap(depthColormap, depthColormap, cv::COLORMAP_JET);
+    depthMask = findDrawContours(close,depthMask);
+
+    return depthMask;
 }

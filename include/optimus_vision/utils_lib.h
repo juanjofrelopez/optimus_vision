@@ -13,13 +13,13 @@ uint16_t getGroundDistance(cv::Mat depthValues);
 uint16_t calculateClippingDistance(uint16_t groundDistance, uint16_t panelDistance);
 
 cv::Mat findDrawContours(cv::Mat close,cv::Mat depthColormap);
-std::vector<cv::Point> polyContour(cv::Mat depthColormap, std::vector<cv::Point> contour);
+std::vector<cv::Point> polyContour(std::vector<cv::Point> contour);
 std::vector<cv::Point> simplifyContour(std::vector<cv::Point> contour);
 std::vector<cv::Point> filterPolyLines(std::vector<cv::Point> contour);
 
 cv::Mat filterDepth(cv::Mat depthValues, uint16_t clippingDistance);
 
 
-cv::Mat processDepth(cv::Mat depthImage);
+cv::Mat processDepth(cv::Mat depthValues);
 
 #endif  // UTILS_LIB_H
