@@ -6,10 +6,13 @@ uint16_t poly_buffer_indx = 0;
 uint16_t poly_buffer[4][2][poly_buffer_size] = {{{0}}};
 
 uint16_t getPanelDistance(cv::Mat depthValues){
-    std::vector<int> panelValues;
+    std::vector<uint16_t> panelValues;
     for (int c = 292; c < 348; c++){
         for (int r = 15; r < 465; r++){
-            panelValues.push_back(static_cast<int>(depthValues.at<int>(r, c)));
+            uint16_t tempDepth = static_cast<uint16_t>(depthValues.at<uint16_t>(r, c));
+            if(tempDepth != 0 /*&& tempDepth < 15000*/){
+                panelValues.push_back(tempDepth);
+            }
         }
     }
     // calculate median
@@ -20,21 +23,25 @@ uint16_t getPanelDistance(cv::Mat depthValues){
         median = (panelValues[n / 2 - 1] + panelValues[n / 2]) / 2.0;
     else
         median = panelValues[n / 2];
+    
+    panelValues.clear();
     return median;
 }
 
 uint16_t getGroundDistance(cv::Mat depthValues){
     std::vector<uint16_t> groundValues;
-    for (int c = 15; c < 70; c++){
-        for (int r = 15; r < 465; r++){
-            groundValues.push_back(static_cast<uint16_t>(depthValues.at<int>(r,c)));
+    // aca en rows recorrer hasta 100 o 200
+    for(int r = 15 ; r<200 ; r++){
+        for(int c = 15; c < 70 ; c++){
+            uint16_t tempDepth1 = depthValues.at<uint16_t>(r,c);
+            uint16_t tempDepth2 = depthValues.at<uint16_t>(r,(640-c));
+            if(tempDepth1 != 0 && tempDepth2 != 0){
+                groundValues.push_back(static_cast<uint16_t>(tempDepth1));
+                groundValues.push_back(static_cast<uint16_t>(tempDepth2));
+            }
         }
     }
-    for (int c = 570; c< 625; c++){
-        for (int r = 15; r < 465; r++){
-            groundValues.push_back(static_cast<uint16_t>(depthValues.at<int>(r,c)));
-        }
-    }
+
     // calculate median
     std::sort(groundValues.begin(), groundValues.end());
     uint16_t n = groundValues.size();
@@ -43,25 +50,28 @@ uint16_t getGroundDistance(cv::Mat depthValues){
         median = (groundValues[n / 2 - 1] + groundValues[n / 2]) / 2.0;
     else
         median = groundValues[n / 2];
+
+    groundValues.clear();
     return median;
 }
 
-uint16_t calculateClippingDistance(uint16_t groundDistance, uint16_t panelDistance){
-    uint16_t  ratio = groundDistance - panelDistance;
-    if (ratio < 1000 || ratio > 3000 || panelDistance < 3000){
-        return 5000;
-    }
-    uint16_t clippingDistance = (panelDistance+groundDistance)/2;
+uint16_t calculateClippingDistance(uint16_t groundDistance/*, uint16_t panelDistance*/){
+    // uint16_t  ratio = groundDistance - panelDistance;
+    // if (ratio < 1000 || ratio > 3000 || panelDistance < 3000){
+    //     return 5000;
+    // }
+    // uint16_t clippingDistance = (panelDistance+groundDistance)/2;
+    uint16_t clippingDistance = groundDistance - 1000;
     return clippingDistance;
 }
 
 cv::Mat filterDepth(cv::Mat depthValues, uint16_t clippingDistance){
     for (uint16_t r = 0; r < 480; r++){
         for (uint16_t c = 0; c < 640; c++){
-            uint16_t tempValue = static_cast<uint16_t>(depthValues.at<uint32_t>(r,c));
+            uint16_t tempValue = static_cast<uint16_t>(depthValues.at<uint16_t>(r,c));
             if(tempValue > clippingDistance){
                 // asignarle un cero en la misma posicion
-                depthValues.at<uint32_t>(r,c) = 0;
+                depthValues.at<uint16_t>(r,c) = 0;
             }
         }
     }
@@ -77,7 +87,7 @@ cv::Mat filterDepth(cv::Mat depthValues, uint16_t clippingDistance){
     // cv::Mat denoise;
     // cv::medianBlur(thresholded_image, denoise, 7);
 
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(27, 27));
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7));
     cv::Mat close;
     //cv::morphologyEx(thresholded_image, close, cv::MORPH_CLOSE, kernel);
     cv::morphologyEx(grayScaleDepth, close, cv::MORPH_CLOSE, kernel);
@@ -166,7 +176,7 @@ std::vector<cv::Point> polyContour(std::vector<cv::Point> contour){
 cv::Mat findDrawContours(cv::Mat close,cv::Mat depthColormap){
     std::vector<std::vector<cv::Point>> contours;
     std::vector<cv::Vec4i> hierarchy;
-    cv::findContours(close, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+    cv::findContours(close, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE); // NONE vs SIMPLE
     
     for (size_t i = 0; i< contours.size(); i++){
         //drawContours( depthColormap, contours, (int)i, (0,255,0), 2, cv::LINE_8, hierarchy, 0 );
@@ -179,10 +189,68 @@ cv::Mat findDrawContours(cv::Mat close,cv::Mat depthColormap){
     return depthColormap;   
 }
 
+void findLinesPatrick(cv::Mat close,cv::Mat depthMask){
+    std::vector<cv::Point>  contour_left;
+    std::vector<cv::Point> contour_rigth;
+    
+    for (int r = 15; r < 200; r++){
+        bool flag_left = false;
+        bool flag_rigth = false;
+        for (int c = 15; c < 640/2; c++){
+            int pixel_left  = static_cast<int>(close.at<uchar>(r, c));
+            int pixel_right = static_cast<int>(close.at<uchar>(r, 640-c));
+            
+            if (pixel_left == 255 && flag_left == false){
+                contour_left.push_back(cv::Point(c, r));
+                flag_left = true;
+            }
+            
+            if (pixel_right==255 && flag_rigth == false){
+                contour_rigth.push_back(cv::Point(640-c, r));
+                flag_rigth = true;
+            }
+            
+            if (flag_rigth && flag_left)
+                break;
+        }
+    }
+    std::vector<std::vector<cv::Point>> contours;
+    contours.push_back(contour_left);
+    contours.push_back(contour_rigth);
+
+    std::vector<cv::Vec4f> lines;
+    for (const auto& contour : contours) {
+        // Ajustar una línea a los contornos
+        if (contour.size()==0)
+            break;
+        cv::Vec4f line;
+        cv::fitLine(contour, line, cv::DIST_L2, 0, 0.01, 0.01);
+        lines.push_back(line); 
+    }
+    for (const auto& line : lines) {
+      float vx = line[0];
+      float vy = line[1];
+      float x = line[2];
+      float y = line[3];
+      
+      //Puntos de la linea
+      cv::Point pt1_out_lin(x - 1000 * vx, y - 1000 * vy);
+      cv::Point pt2_out_lin(x + 1000 * vx, y + 1000 * vy); 
+      float angle = std::atan2(pt1_out_lin.y - pt2_out_lin.y, pt1_out_lin.x - pt2_out_lin.x) * 180 / CV_PI;
+
+      if (std::abs(angle) < 135 && std::abs(angle) > 45 ) {
+        //cv::line(depthMask, pt1_out_lin, pt2_out_lin, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
+        cv::line(depthMask, pt1_out_lin, pt2_out_lin, 255, 3, cv::LINE_AA);
+      }
+   }
+}
+
 cv::Mat processDepth(cv::Mat depthValues){
-    uint16_t panelDistance = getPanelDistance(depthValues);
+    //uint16_t panelDistance = getPanelDistance(depthValues);
     uint16_t groundDistance = getGroundDistance(depthValues);
-    uint16_t clippingDistance = calculateClippingDistance(groundDistance,panelDistance);
+    // uint16_t clippingDistance = calculateClippingDistance(groundDistance,panelDistance);
+
+    uint16_t clippingDistance = calculateClippingDistance(groundDistance);
     
     // std::cout<<panelDistance<<" "<<groundDistance<<" "<<clippingDistance<<std::endl;
     // std::cout<<"\x1b[1A"<<"\x1b[2K"<<"\r";
@@ -190,10 +258,14 @@ cv::Mat processDepth(cv::Mat depthValues){
     cv::Mat close = filterDepth(depthValues,clippingDistance);
 
     //cv::Mat depthColormap;
-    cv::Mat depthMask = cv::Mat::zeros(close.size(), CV_8UC3);
     // cv::convertScaleAbs(depthValues, depthColormap);
     // cv::applyColorMap(depthColormap, depthColormap, cv::COLORMAP_JET);
-    depthMask = findDrawContours(close,depthMask);
+    
+    
+    //cv::Mat depthMask = cv::Mat::zeros(close.size(), CV_8UC3);
+    cv::Mat depthMask = cv::Mat::zeros(close.size(), CV_8UC1);
+    //depthMask = findDrawContours(close,depthMask);
+    findLinesPatrick(close,depthMask);
 
     return depthMask;
 }

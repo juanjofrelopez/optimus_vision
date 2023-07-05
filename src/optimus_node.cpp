@@ -20,8 +20,8 @@ void depth_callback(const sensor_msgs::Image::ConstPtr& msg){
 
     cv::Mat depthImage = cv_ptr->image;
     cv::Mat depthValues;
-    //depthImage.convertTo(depthValues, CV_16U);
-    depthImage.convertTo(depthValues, CV_32S);
+    depthImage.convertTo(depthValues, CV_16U);
+    //depthImage.convertTo(depthValues, CV_32S);
     
     // std::cout << depthValues.rows<< " " << depthValues.cols << std::endl;
     // std::cout<<"\x1b[1A"<<"\x1b[2K"<<"\r";
@@ -34,7 +34,6 @@ void depth_callback(const sensor_msgs::Image::ConstPtr& msg){
     // Publish the depth image
     cv::Mat depthColormap = processDepth(depthValues);
     
-    // count time
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
     std::cout << duration.count() << std::endl;
@@ -43,8 +42,8 @@ void depth_callback(const sensor_msgs::Image::ConstPtr& msg){
     //std::cout<<depthImage.type()<<std::endl;
     //std::cout<<"\x1b[1A"<<"\x1b[2K"<<"\r";
 
-    sensor_msgs::ImagePtr depth_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", depthColormap).toImageMsg();
-    //sensor_msgs::ImagePtr depth_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8",  depthColormap).toImageMsg();
+    //sensor_msgs::ImagePtr depth_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", depthColormap).toImageMsg();
+    sensor_msgs::ImagePtr depth_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8",  depthColormap).toImageMsg();
     depth_publisher.publish(depth_msg);
 }
 

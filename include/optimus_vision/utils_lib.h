@@ -18,6 +18,7 @@ std::vector<cv::Point> simplifyContour(std::vector<cv::Point> contour);
 std::vector<cv::Point> filterPolyLines(std::vector<cv::Point> contour);
 
 cv::Mat filterDepth(cv::Mat depthValues, uint16_t clippingDistance);
+void findLinesPatrick(cv::Mat close,cv::Mat depthMask);
 
 
 cv::Mat processDepth(cv::Mat depthValues);
