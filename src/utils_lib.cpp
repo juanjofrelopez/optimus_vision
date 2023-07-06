@@ -34,9 +34,12 @@ uint16_t getGroundDistance(cv::Mat depthValues){
     for(int r = 15 ; r<200 ; r++){
         for(int c = 15; c < 70 ; c++){
             uint16_t tempDepth1 = depthValues.at<uint16_t>(r,c);
-            uint16_t tempDepth2 = depthValues.at<uint16_t>(r,(640-c));
-            if(tempDepth1 != 0 && tempDepth2 != 0){
+            if(tempDepth1 != 0 && tempDepth1 < 10000){
                 groundValues.push_back(static_cast<uint16_t>(tempDepth1));
+            }
+
+            uint16_t tempDepth2 = depthValues.at<uint16_t>(r,(640-c));
+            if(tempDepth2 != 0 && tempDepth2 < 10000){
                 groundValues.push_back(static_cast<uint16_t>(tempDepth2));
             }
         }
@@ -46,10 +49,12 @@ uint16_t getGroundDistance(cv::Mat depthValues){
     std::sort(groundValues.begin(), groundValues.end());
     uint16_t n = groundValues.size();
     uint16_t median = 0;
-    if (n % 2 == 0)
-        median = (groundValues[n / 2 - 1] + groundValues[n / 2]) / 2.0;
-    else
-        median = groundValues[n / 2];
+    if(n > 0){
+        if (n % 2 == 0)
+            median = (groundValues[n / 2 - 1] + groundValues[n / 2]) / 2.0;
+        else
+            median = groundValues[n / 2];
+    }    
 
     groundValues.clear();
     return median;
@@ -61,7 +66,7 @@ uint16_t calculateClippingDistance(uint16_t groundDistance/*, uint16_t panelDist
     //     return 5000;
     // }
     // uint16_t clippingDistance = (panelDistance+groundDistance)/2;
-    uint16_t clippingDistance = groundDistance - 1000;
+    uint16_t clippingDistance = groundDistance - 1000; // 1 metro en milimetros
     return clippingDistance;
 }
 
@@ -217,32 +222,45 @@ void findLinesPatrick(cv::Mat close,cv::Mat depthMask){
     std::vector<std::vector<cv::Point>> contours;
     contours.push_back(contour_left);
     contours.push_back(contour_rigth);
+    
+    
+    // for( size_t i = 0; i< contours.size(); i++ ){
+    //     cv::drawContours( depthMask, contours, (int)i, 255, 2, cv::LINE_8);
+    // }
 
     std::vector<cv::Vec4f> lines;
     for (const auto& contour : contours) {
         // Ajustar una línea a los contornos
-        if (contour.size()==0)
+        if (contour.size() == 0)
             break;
         cv::Vec4f line;
-        cv::fitLine(contour, line, cv::DIST_L2, 0, 0.01, 0.01);
+
+        // puntos, output line, distType, param, reps, aeps
+        // output line: (vx,vy) (x0,y0)
+        // param: 0 is optimal
+        //cv::fitLine(contour, line, cv::DIST_L2, 0, 0.01, 0.01);
+        cv::fitLine(contour, line, cv::DIST_HUBER, 0, 0.01, 0.01);
+        
         lines.push_back(line); 
     }
-    for (const auto& line : lines) {
-      float vx = line[0];
-      float vy = line[1];
-      float x = line[2];
-      float y = line[3];
-      
-      //Puntos de la linea
-      cv::Point pt1_out_lin(x - 1000 * vx, y - 1000 * vy);
-      cv::Point pt2_out_lin(x + 1000 * vx, y + 1000 * vy); 
-      float angle = std::atan2(pt1_out_lin.y - pt2_out_lin.y, pt1_out_lin.x - pt2_out_lin.x) * 180 / CV_PI;
 
-      if (std::abs(angle) < 135 && std::abs(angle) > 45 ) {
-        //cv::line(depthMask, pt1_out_lin, pt2_out_lin, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
-        cv::line(depthMask, pt1_out_lin, pt2_out_lin, 255, 3, cv::LINE_AA);
-      }
-   }
+    for (const auto& line : lines) {
+        float vx = line[0];
+        float vy = line[1];
+        float x = line[2];
+        float y = line[3];
+        
+        //Puntos de la linea
+        cv::Point pt1_out_lin(x - 640 * vx, y - 640 * vy);
+        cv::Point pt2_out_lin(x + 640 * vx, y + 640 * vy);
+        
+        float angle = std::atan2(pt1_out_lin.y - pt2_out_lin.y, pt1_out_lin.x - pt2_out_lin.x) * 180 / CV_PI;
+
+        if (std::abs(angle) < 135 && std::abs(angle) > 45 ) {
+            //cv::line(depthMask, pt1_out_lin, pt2_out_lin, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
+            cv::line(depthMask, pt1_out_lin, pt2_out_lin, 255, 3, cv::LINE_AA);
+        }
+    }
 }
 
 cv::Mat processDepth(cv::Mat depthValues){
