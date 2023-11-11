@@ -84,19 +84,18 @@ cv::Mat filterDepth(cv::Mat depthValues, uint16_t clippingDistance){
     cv::Mat grayScaleDepth;
     convertScaleAbs(depthValues, grayScaleDepth);
     
+    /*Estas funciones quedaron obsoletas*/
     // uint16_t thresh = 255;
     // uint16_t max_value = 255;
     // cv::Mat thresholded_image;
     // cv::threshold(grayScaleDepth, thresholded_image, thresh, max_value, cv::THRESH_TRUNC);
-
     // cv::Mat denoise;
     // cv::medianBlur(thresholded_image, denoise, 7);
 
+    /*Nueva version simplificada*/
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7));
     cv::Mat close;
-    //cv::morphologyEx(thresholded_image, close, cv::MORPH_CLOSE, kernel);
     cv::morphologyEx(grayScaleDepth, close, cv::MORPH_CLOSE, kernel);
-
     return close;
 }
 
@@ -275,14 +274,15 @@ cv::Mat processDepth(cv::Mat depthValues){
     
     cv::Mat close = filterDepth(depthValues,clippingDistance);
 
-    //cv::Mat depthColormap;
+    // cv::Mat depthColormap;
     // cv::convertScaleAbs(depthValues, depthColormap);
     // cv::applyColorMap(depthColormap, depthColormap, cv::COLORMAP_JET);
     
     
-    //cv::Mat depthMask = cv::Mat::zeros(close.size(), CV_8UC3);
+    // //cv::Mat depthMask = cv::Mat::zeros(close.size(), CV_8UC3); 
+    // //depthMask = findDrawContours(close,depthMask);
+
     cv::Mat depthMask = cv::Mat::zeros(close.size(), CV_8UC1);
-    //depthMask = findDrawContours(close,depthMask);
     findLinesPatrick(close,depthMask);
 
     return depthMask;
